@@ -1,0 +1,361 @@
+URL : https://www.youtube.com/watch?v=M92OQYANfrw
+*****to check which package provide commands
+example searching for command mkpasswd:
+yum whatprovides "*/mkpasswd"
+
+PS1=master#
+EPEL Repo ## https://www.tecmint.com/how-to-enable-epel-repository-for-rhel-centos-6-5/
+
+1. Create instances as required
+2. Create pub key ssh-keygen (created file located in homedir .ssh)
+3. copy them to all other nodes 
+# ssh-copy-id ip
+3. It restricts as /etc/ssh/sshd_config we have password authentication is no
+ 
+
+
+#ansible --version
+
+#ansible all --list-hosts
+
+#ansible all -m ping (to check for all hosts present in /etc/ansible/hosts file)
+
+#ansilbe group -m ping (to run command for all the servers present in the group)
+
+#ansible ip -m ping (to run command for individual server)
+
+Adhoc command:
+
+#ansible all -m command -a "uptime" (to check for all hosts present in /etc/ansible/hosts file)
+
+#ansible group -m command -a "uptime" (to run command for all the servers present in the group)
+
+#ansible ip -m command -a "uptime" (to run command for individual server)
+
+#ansible all -m yum -a "name=httpd state=present"
+
+#ansible all -m user -a "name=John state=present"
+
+#ansilble all -m service -a "name=httpd state=started"
+
+#ip ansible_connection=ssh ansible_user=root ansible_ssh_pass=password
+
+#ip ansible_connect=ssh ansible_user=centos ansible_ssh_pass=password ansible_become=true ansible_sudo_pass=password
+
+In Inventory (/etc/ansible/hosts) to pass credentials follow below format
+As password is same for all server in group if not need to add password side by the server individually
+[unix:vars]
+ansible_connection=ssh
+ansible_user=root
+ansible_ssh_pass=default123
+
+#####################Playbooks##############################
+
+Ansible uses YAML format (yet another markup language)
+Playbook file should have extension of .yml
+
+Play book sample:
+vi.example.yml
+---
+- hosts: 192.xxx.xx.xx
+  tasks:
+  - yum: name=httpd state=present
+  - yum: name=git state=present
+  - service: name=httpd state=started
+  - git: repo=https://github.com/demoglot/html-samples-food.git dest=/var/www/html
+-----------------other example----------vi food.yml
+---
+- hosts: web
+  tasks:
+  - group: name=devops state=present
+  - user: name=john state=present groups=devops password:adferwersdf(encrtpyted need to generate)
+  - package: name=ntp state=present 
+  - service: name=ntpd state =started
+  - package: name=httpd state=present
+  - package: name=git state=present
+  - service: name=httpd state=started
+  - git repo: https://github.com/demoglot/html-samples-food dest= src=/var/www/html
+
+
+#ansible-playbook food.yml
+
+modification of food.yml
+
+---
+- hosts: web
+  tasks:
+  - name: creating group
+    group: name=devops state=present
+  - name: creating user
+    user: name=john state=present groups=devops password:adferwersdf(encrtpyted need to generate)
+  - name: Installing ntp package
+    package: name=ntp state=present 
+  - name: starting ntpd service
+    service: name=ntpd state =started
+  - name: Installing https package
+    package: name=httpd state=present
+  - name: Installing git
+    package: name=git state=present
+  - name: starting httpd
+    service: name=httpd state=started
+  - name: copying git repo to destination
+    git repo: https://github.com/demoglot/html-samples-food dest= src=/var/www/html
+#ansible-playbook food.yml
+
+Another modification of food.yml
+
+---
+- hosts: web
+  tasks:
+  - name: creating group
+    group: name=devops state=present
+  - name: creating user
+    user: name=john state=present groups=devops password:adferwersdf(encrtpyted need to generate) 
+# - name: Installing packages
+#   package: name=ntp state=present
+#   package: name=httpd state=present
+#   package: name=git state=present
+
+  - name: creating packages
+    package: name={{item}} state=present
+    with_items:
+    - httpd
+    - git
+    - ntp
+  -name: starting services
+   service: name={{item}} state=started
+   with_items:
+   - httpd
+   -ntpd
+# - name: starting services
+#   service: name=httpd state=started
+#   service: name=ntpd state =started
+
+  - name: copying git repo to destination
+    git repo: https://github.com/demoglot/html-samples-food dest= src=/var/www/html
+
+#added below in food.yml file to create user on platfrom dependent
+  - name: creating centos for centos platforms
+    user: name=centos state=present
+    when: ansible_distribution == 'CentOS'
+
+  - name: creating for ubuntu for ubuntu platforms
+    user: name=ubuntu state=present
+    when: ansible_distribution == 'ubuntu'
+
+#ansible-playbook food.yml
+
+if we observer the food.yml output we can find setup task executed before our script, it is the default task exexuted by ansible before any yml or playbook script
+to check that user below
+#ansible all/ip/group -m setup
+  ***********************************Roles***************************
+
+Roles are used for repetead commands in playbook it can be called into any playbook
+
+#cd /etc/ansible/roles
+#ls --> it will be empty
+#ansible-galaxy init schalla.user
+#ls --> we could see role created with name schalla.user
+#cd schalla.user
+#ls --> we can find many sub-dirs
+in tasks we will write the re-usable code
+#vi tasks/main.yml
+
+##Tasks for schall.user
+- name: creating users
+  user:name={{item}} state=present
+  with_items
+  - john 
+  - suresh
+  - mahesh
+
+- name: create cetos user for CentOS distributions
+  user: name=centos state=present
+  when: ansible_distribution == "CentOS"
+
+- name: create cetos user for Ubuntu distributions
+  user: name=Ubuntu state=present
+  when: ansible_distribution == "Ubuntu"
+
+:wq!
+
+##In food.yml modification:
+
+ 
+---
+- hosts: web
+  roles:
+    - schalla.users
+  tasks:
+  - name: creating group
+    group: name=devops state=present
+  - name: creating user
+    user: name=john state=present groups=devops password:adferwersdf(encrtpyted need to generate) 
+# - name: Installing packages
+#   package: name=ntp state=present
+#   package: name=httpd state=present
+#   package: name=git state=present
+
+  - name: creating packages
+    package: name={{item}} state=present
+    with_items:
+    - httpd
+    - git
+    - ntp
+:wq!
+
+#cd /etc/ansible/roles
+#ls
+#ansible-galaxy init schalla.httpd
+# vi schalla.httpd/tasks/main.yml
+##tasks file for schalla.httpd
+
+- name: installing packages
+  package: name={{ item }} state=present
+  with_items:
+    - httpd
+    - git
+    - ntp
+
+- name: starting serivces
+  service: name={{ item }} state=started
+  with_items
+     - httpd
+     - ntpd
+
+:wq!
+
+##modify food.yml
+
+---
+-  hosts: web
+   roles:
+     - schalla.users
+     - schalla.httpd
+   tasks:
+   - git: repo=https://github.com/demoglot/html-samples-food.git src=/var/www/html
+:wq!
+--exercise--
+
+Take another node and create website for doctor with below url for git with roles
+
+##https://github.com/demoglot/html-samples-doctor
+
+
+*************running multiple roles********************
+
+#cd /etc/ansible/roles
+#vi /etc/ansible/roles
+#ansible-galxy init schalla.mariadb
+#vi schall.mariadb/tasks/main.yml
+##tasks file for schalla.mariadb
+- name: installing package
+  package: name=mariadb-server state=present
+
+- name: creating user
+  user: mariadb state=present
+:wq!
+
+
+#vi /etc/ansible/hosts (create 2 new servers)
+
+[food-web]
+ip
+[food-db]
+ip
+[food:children]
+food-web
+food-db
+[food:vars]
+ansible_connection=ssh
+ansible_user=root
+ansible_ssh_pass=default123
+
+#cd /etc/ansible/playbooks
+#vi food.yml
+---
+- hosts: food-web
+  roles:
+   - schalla.user
+   - schalla.httpd
+  tasks:
+  -git: repo=https://github.com/demoglot/html-samples-food.git dest=/var/www/html
+
+
+- hosts: food-db
+  roles:
+   - schalla.users
+   - schalla.mariadb
+:wq!
+#ansible-playbook food.yml
+
+***********************************************Templates/files***************************
+
+## to copy any files we will put them in files folder
+##Template is like passing values to conf files for example below we are trying to pass the port number from controller node to client node
+
+##Create new server and copy the httpd.conf to controller machine under template
+#cd /etc/httpd/conf
+#ls
+#scp httpd.conf ip:/etc/ansible/roles/schalla.httpd/templates
+##In controller machine 
+#/etc/ansible/roles/schall.httpd/templates
+j#ls
+##httpd.conf --> file is visible
+#vi httpd.conf
+##search for Listen
+Listen {{ port }}
+:wq!
+#mv httpd.conf httpd.conf.j2
+
+#cd /devops/playbooks
+#ls
+#vi food.yml
+---
+- hosts: food-web
+  vars:
+    - port: 8080
+  roles:
+   - schalla.user
+   - schalla.httpd
+  tasks:
+  -git: repo=https://github.com/demoglot/html-samples-food.git dest=/var/www/html
+
+
+- hosts: food-db
+  roles:
+   - schalla.users
+   - schalla.mariadb
+:wq!
+
+# vi schalla.httpd/tasks/main.yml
+##tasks file for schalla.httpd
+
+- name: installing packages
+  package: name={{ item }} state=present
+  with_items:
+    - httpd
+    - git
+    - ntp
+
+- name: starting serivces
+  service: name={{ item }} state=started
+  with_items
+     - httpd
+     - ntpd
+
+- name: copy httpd.conf
+  template: src=httpd.conf.j2 dest=/etc/httpd/conf/httpd.conf
+:wq!
+
+#ansible-playbook food.yml
+
+##now login to client machines that are under food.yml to notice the changes
+
+#vi /etc/httpd/conf/httpd.conf
+##search for Listen
+:wq!
+
+
+**********************Galaxy******************
+URL =https:/galaxy.ansible.com --> check in browser
