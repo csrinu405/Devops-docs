@@ -12,7 +12,7 @@ EPEL Repo ## https://www.tecmint.com/how-to-enable-epel-repository-for-rhel-cent
 # ssh-copy-id ip
 3. It restricts as /etc/ssh/sshd_config we have password authentication is no
  
-
+#ansible-doc -l --> to view all the modules
 
 #ansible --version
 
@@ -359,3 +359,22 @@ Listen {{ port }}
 
 **********************Galaxy******************
 URL =https:/galaxy.ansible.com --> check in browser
+
+#ansible lint--> used to test the playbooks or ansible code
+
+
+-----------------------------------------------------------------------
+To enable root password logins
+
+RHEL:
+vi /etc/ssh/sshd_config
+PasswordAuthentication yes
+#PermitEmptyPasswords no
+#PasswordAuthentication no
+
+Ubuntu:
+vi /etc/ssh/sshd_config
+PermitRootLogin yes
+#PermitRootLogin without-password
+PasswordAuthentication yes
+restart ssh
